@@ -77,8 +77,9 @@ const grid = new gridjs.Grid({
 const courses = [];
 
 // references to readout elements
-const cumulativeGpaReadoutEl = document.getElementById("gpa");
-const numCreditsReadoutEl = document.getElementById("numCredits");
+const cumulativeGpaReadout = document.getElementById("gpa");
+const numAttemptedCreditsReadout = document.getElementById("numAttemptedCredits");
+const numEarnedCreditsReadout = document.getElementById("numEarnedCredits");
 
 // references to the filter elements
 const attributeSelect = document.getElementById("attributeSelect");
@@ -243,14 +244,18 @@ function populateSelects() {
  */
 function updateNumberReadouts() {
     // calculate GPA and update 
-    cumulativeGpaReadoutEl.innerText = calculateGPA(grid.config.data);
+    cumulativeGpaReadout.innerText = calculateGPA(grid.config.data);
 
     // get number of credits and update num credits readout
-    numCreditsReadoutEl.textContent = grid.config.data
+    numAttemptedCreditsReadout.textContent = grid.config.data
+        .reduce((a, b) => a + b.credits, 0);
+
+    // get number of credits and update num credits readout
+    numEarnedCreditsReadout.textContent = grid.config.data
         // do not count courses that were retaken w/ a higher grade
         .filter(x => x.retakeOverride != true)
         // do not count F's, incompletes, or withdrawn courses
-        .filter(x => !["F", "W", "I"].includes(x.grade))
+        .filter(x => !["F", "W", "I", "-"].includes(x.grade))
         // get number of credits
         .reduce((a, b) => a + b.credits, 0);
 }
