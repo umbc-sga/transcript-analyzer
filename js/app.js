@@ -119,10 +119,10 @@ function bindFilterButtonActions() {
         const attribute = ATTRIBUTES.find(x => x.name == attributeSelect.value);
         const prop = attribute?.id;
         const relation = relationSelect.value;
-        const value = comparisonValueInput.value;
+        let value = comparisonValueInput.value;
 
         // set data = grid.config.data to stack filters
-        const data = courses;
+        const data = grid.config.data;
         const filteredData = [];
 
         // property is a dummy attribute for UX purposes
@@ -132,58 +132,64 @@ function bindFilterButtonActions() {
             return;
         }
 
-        if (relation == "equals")
-        {
-            filteredData.push(...data.filter(x => x[prop] == value));
-        }
-        else if (relation == "is less than")
-        {
+        // calculate sorting weights for grades?
+        // if (attribute.id == "grade")
+        // {
+        //         const sortingWeights = {
+        //             "A": 4,
+        //             "B": 3,
+        //             "C": 2,
+        //             "D": 1,
+        //             "E": 0,
+        //             "P": 0.5,
+        //             "T": 0.5
+        //         };
+
+        //         value = sortingWeights[value];
+        // }
+
+        // support OR statements
+        const values = value.split("|").map(x => x.trim());
+        values.forEach(value => {
+            // convert the value to a number if the attribute in question is numeric
             if (attribute.type == "number")
             {
-                filteredData.push(...data.filter(x => x[prop] < parseInt(value, 10)));
+                value = parseInt(value, 10);
             }
-            // this query doesn't make sense if the attribute is type is non-numeric
-            else
+
+            if (relation == "equals")
             {
-                return;
+                filteredData.push(...data.filter(x => x[prop] == value));
             }
-        }
-        else if (relation == "is less than or equal to")
-        {
-            if (attribute.type == "number")
+            else if (relation == "does not equal")
             {
-                filteredData.push(...data.filter(x => x[prop] <= parseInt(value, 10)));
+                filteredData.push(...data.filter(x => x[prop] != value));
             }
-            // this query doesn't make sense if the attribute is type is non-numeric
-            else
+            else if (relation == "includes")
             {
-                return;
+                filteredData.push(...data.filter(x => x[prop].includes(value)));
             }
-        }
-        else if (relation == "is greater than")
-        {
-            if (attribute.type == "number")
+            else if (relation == "does not include")
             {
-                filteredData.push(...data.filter(x => x[prop] > parseInt(value, 10)));
+                filteredData.push(...data.filter(x => !x[prop].includes(value)));
             }
-            // this query doesn't make sense if the attribute is type is non-numeric
-            else
+            else if (relation == "is less than")
             {
-                return;
+                filteredData.push(...data.filter(x => x[prop] < value));
             }
-        }
-        else if (relation == "is greater than or equal to")
-        {
-            if (attribute.type == "number")
+            else if (relation == "is less than or equal to")
             {
-                filteredData.push(...data.filter(x => x[prop] >= parseInt(value, 10)));
+                filteredData.push(...data.filter(x => x[prop] <= value));
             }
-            // this query doesn't make sense if the attribute is type is non-numeric
-            else
+            else if (relation == "is greater than")
             {
-                return;
+                filteredData.push(...data.filter(x => x[prop] > value));
             }
-        }
+            else if (relation == "is greater than or equal to")
+            {
+                filteredData.push(...data.filter(x => x[prop] >= value));
+            }
+        });
 
         // update the table with course data
         grid.updateConfig({
@@ -224,7 +230,7 @@ function populateSelects() {
     });
 
     // populate relation select
-    const relations = ["equals", "is less than", "is less than or equal to", "is greater than", "is greater than or equal to"];
+    const relations = ["equals", "does not equal", "includes", "does not include", "is less than", "is less than or equal to", "is greater than", "is greater than or equal to"];
     relations.forEach(relation => {
         relationSelect.add(createElement(relationSelect, "option", {
             text: relation
@@ -240,7 +246,13 @@ function updateNumberReadouts() {
     cumulativeGpaReadoutEl.innerText = calculateGPA(grid.config.data);
 
     // get number of credits and update num credits readout
-    numCreditsReadoutEl.textContent = grid.config.data.reduce((a, b) => a + b.credits, 0);
+    numCreditsReadoutEl.textContent = grid.config.data
+        // do not count courses that were retaken w/ a higher grade
+        .filter(x => x.retakeOverride != true)
+        // do not count F's, incompletes, or withdrawn courses
+        .filter(x => !["F", "W", "I"].includes(x.grade))
+        // get number of credits
+        .reduce((a, b) => a + b.credits, 0);
 }
 
 /**
@@ -359,6 +371,7 @@ async function importCourses() {
         const data = await parsePDF(atob(fileReader.result.replace("data:application/pdf;base64,", "")));
 
         // go through every page
+        let semester;
         for (const page of data.pages) {
             // get the lines of the PDF (lines is an array of line items arrays) by grouping by y-coordinate
             const sortedRawLines = Object.values(fuzzyGroupByYPos(page.content, 0))
@@ -381,8 +394,7 @@ async function importCourses() {
                         && !line.includes("UMBC Cum GPA") && !line.includes("UMBC Term GPA")
                         && !line.includes("Overall Term GPA") && !line.includes("Test Trans GPA")
                 });
-
-            let semester;
+            
             while (coursesAndSemesterLines.length)
             {
                 const line = coursesAndSemesterLines.shift();
@@ -435,6 +447,19 @@ async function importCourses() {
                         completed: true
                     };
 
+                    // if this class is a re-take
+                    const previousTry = courses.find(x => x.name == course.name);
+                    if (previousTry)
+                    {
+                        const grades = GRADE_INFO.map(x => x.letter);
+
+                        // if the student retook the course and got a higher grade, remove the old grade
+                        if (grades.indexOf(course.grade) < grades.indexOf(previousTry.grade))
+                        {
+                            previousTry.retakeOverride = true;
+                        }
+                    }
+
                     // prevent duplicate credit transfers (APs are sometimes weird)
                     if (grade != "T" || grade == "T" && courses.find(x => x.name == courseName) == null)
                     {
@@ -469,13 +494,14 @@ function calculateGPA(courses) {
 
     // go through every course element
     courses
+        .filter(x => x.retakeOverride != true)
         .forEach(course => {
             // get the credit number and course grade information from the input elements
             const credits = course.credits;
             const grade = course.grade;
 
             // if the course information is complete
-            if (credits && !["-", "T", "P"].includes(grade)) 
+            if (credits && !["-", "T", "P", "W", "I"].includes(grade)) 
             {
                 // find the grade weight for the corresponding letter grade
                 const gradeWeight = GRADE_INFO.find(x => x.letter == grade).weight;

@@ -52,6 +52,77 @@
             <p>
                 <b>Privacy Notice: </b>Your Unofficial Transcript is only analyzed locally, meaning that it never leaves your device.
             </p>
+
+            <hr>
+
+            <h4>How to Use This App</h4>
+            <p>
+                This app was created to allow people to search and sort data from their transcripts to check graduation requirements, as well as to view trends in the data.
+            </p>
+
+            <p>
+                If you click on the table headers, it allows you to sort the table by the data in that column. To search for specific data, use the filter dropdown and input elements. The search value supports OR statements by using the pipe character ("|"). See the example queries below on how to use it.
+            </p>
+
+            <p>
+                When you apply a filter, it shows a subset of your data. If you have applied a filter, the next filter will be applied on that subset that is showing in the table, thus refining your data even more. This is called "filter stacking". This is why the search value supports OR statements, but not AND statements, because you can just stack filters. Pressing the Reset Filter button will go back to showing all of your transcript data.
+            </p>
+
+            <p class="mb-0">
+                <b>Example Useful Queries:</b>
+            </p>
+
+            <ul class="mt-1" style="line-height: 2;">
+                <li>
+                    Select items where <span class="badge bg-primary">Course Number</span> <span class="badge bg-success">is greater than or equal to</span> to <span class="badge bg-primary">300</span>.
+
+                    <ul>
+                        <li>
+                            This query will select items where the Course Number is greater or equal to 300, in other words, it will show all of your 300-400 level courses.
+                        </li>
+                    </ul>
+                </li>
+
+                <li>
+                    Select items where <span class="badge bg-primary">Department</span> <span class="badge bg-success">equals</span> <span class="badge bg-primary">PHIL</span>.
+
+                    <ul>
+                        <li>
+                            This query will select items where the Department equals PHIL, in other words, it will show all of your classes that you've taken in the PHIL department.
+                        </li>
+                    </ul>
+                </li>
+
+                <li>
+                    Select items where <span class="badge bg-primary">Grade</span> <span class="badge bg-success">does not equal</span> <span class="badge bg-primary">-</span>.
+
+                    <ul>
+                        <li>
+                            This query will select items where Grade does not equal -, in other words, it will show all of your classes where you have a grade for it.
+                        </li>
+                    </ul>
+                </li>
+
+                <li>
+                    Select items where <span class="badge bg-primary">Grade</span> <span class="badge bg-success">equals</span> <span class="badge bg-primary">A | B | C</span>.
+
+                    <ul>
+                        <li>
+                            This query will select items where Grade equals A or B or C, in other words, it will show all of your classes where you've gotten an A, B, or C in it.
+                        </li>
+                    </ul>
+                </li>
+
+                <li>
+                    Select items where <span class="badge bg-primary">Semester</span> <span class="badge bg-success">includes</span> <span class="badge bg-primary">Spring</span>.
+
+                    <ul>
+                        <li>
+                            This query will select items where Semester includes Spring, in other words, it will show all of your classes that you've taken in a Spring semester, ignoring the year.
+                        </li>
+                    </ul>
+                </li>
+            </ul>
         </section>
 
         <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta3/dist/js/bootstrap.bundle.min.js"></script>
