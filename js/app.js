@@ -39,6 +39,11 @@ const ATTRIBUTES = [
         type: "string"
     },
     {
+        id: "semester",
+        name: "Semester",
+        type: "string"
+    },
+    {
         id: "credits",
         name: "Credits",
         type: "number"
@@ -52,11 +57,19 @@ const ATTRIBUTES = [
 
 const grid = new gridjs.Grid({
     columns: ATTRIBUTES,
-    data: [],
+    data: [{
+        "department": "",
+        "name": "",
+        "courseNumber": "",
+        "credits": "",
+        "grade": "",
+    }],
+    fixedHeader: true,
     pagination: {
         enabled: true,
         limit: 20
     },
+    resizable: true,
     sort: true
 });
 
@@ -94,21 +107,6 @@ const importCoursesButtons = document.getElementById("importCourses");
     // bind functionality to filter buttons
     bindFilterButtonActions();   
 
-    // load dummy test data
-    // {
-    //     // get sample course data json
-    //     const response = await fetch("data.json");
-    //     const data = await response.json();
-    //     courses.push(...data.courses);
-
-    //     // update the table with course data
-    //     grid.updateConfig({
-    //         data: courses
-    //     }).forceRender();
-
-    //     updateNumberReadouts();
-    // }
-    
     // bind the add course div function to the add course button
     importCoursesButtons.onclick = importCourses;
 })();
@@ -374,87 +372,89 @@ async function importCourses() {
                 .map(line => line.reduce((a, b) => a + " " + b.str, ""));
 
             // go through all the reconstructed lines
-            const courseLines = reconstructedLines
+            const coursesAndSemesterLines = reconstructedLines
                 // filter out all the non-course lines
                 .filter(line => {
-                    return line.includes(".00") && !line.includes("Overall Cum GPA")
+                    return (line.includes(".00") || line.includes("Fall") || line.includes("Spring")
+                            || line.includes("Summer") || line.includes("Winter")) 
+                        && !line.includes("Overall Cum GPA")
                         && !line.includes("UMBC Cum GPA") && !line.includes("UMBC Term GPA")
-                            && !line.includes("Overall Term GPA") && !line.includes("Test Trans GPA")
+                        && !line.includes("Overall Term GPA") && !line.includes("Test Trans GPA")
                 });
 
-            // go through all the course lnes
-            courseLines.forEach(line => {
-                // filter out empty strings
-                const tokens = line.split(" ").filter(x => x != "");
+            let semester;
+            while (coursesAndSemesterLines.length)
+            {
+                const line = coursesAndSemesterLines.shift();
 
-                // reconstruct the course code from the tokens
-                const [ department, courseNum ] = tokens;
-                const courseCode = `${department} ${courseNum}`;
-                tokens.splice(0, 2);
-
-                /**
-                 * Reconstruct the course name from the tokens. This is harder thant it looks because we don't know how long
-                 * a course name will be and from the other end it can be either 3 or 4 columns depending if the course has a grade or not.
-                 */
-                const courseNameTokens = [];
-                while (isNaN(parseFloat(tokens[0])))
+                // if is a course line
+                if (line.includes(".00"))
                 {
-                    courseNameTokens.push(tokens[0]);
-                    tokens.splice(0, 1);
-                }
-                const courseName = courseNameTokens.join(" ");
+                    // filter out empty strings
+                    const tokens = line.split(" ").filter(x => x != "");
 
-                // get the credit and grade information for the course
-                if (tokens.length == 4)
-                {
-                    const [ attempted, earned, grade, points ] = tokens;
+                    // reconstruct the course code from the tokens
+                    const [department, courseNum] = tokens;
+                    const courseCode = `${department} ${courseNum}`;
+                    tokens.splice(0, 2);
+
+                    /**
+                     * Reconstruct the course name from the tokens. This is harder thant it looks because we don't know how long
+                     * a course name will be and from the other end it can be either 3 or 4 columns depending if the course has a grade or not.
+                     */
+                    const courseNameTokens = [];
+                    while (isNaN(parseFloat(tokens[0]))) 
+                    {
+                        courseNameTokens.push(tokens[0]);
+                        tokens.shift();
+                    }
+                    const courseName = courseNameTokens.join(" ");
+
+                    // get the credit and grade information for the course
+                    let attempted, grade;
+                    if (tokens.length == 4)
+                    {
+                        // skip earned (and ignore points)
+                        [ attempted, , grade ] = tokens;
+                    }
+                    // if the course has no grade yet
+                    else if (tokens.length == 3) 
+                    {
+                        // ignore earned and points
+                        [ attempted ] = tokens;
+                    }
 
                     // create a course object
                     const course = {
                         department: department,
                         name: courseName,
                         courseNumber: courseNum,
+                        semester: semester,
                         credits: parseInt(attempted, 10),
-                        grade: grade,
+                        grade: grade || "-",
                         completed: true
                     };
 
-                    // if the course has been taken before, mark both times as a retake
-                    const firstTry = courses.find(x => x.name == course.name);
-                    if (firstTry) 
+                    // prevent duplicate credit transfers (APs are sometimes weird)
+                    if (grade != "T" || grade == "T" && courses.find(x => x.name == courseName) == null)
                     {
-                        firstTry.retake = true;
-                        course.retake = true;
+                        courses.push(course);
                     }
-                    
-                    courses.push(course);
                 }
-                else if (tokens.length == 3) 
+                else
                 {
-                    const [ attempted, earned, points ] = tokens;
-                    
-                    // create a course object
-                    const course = {
-                        department: department,
-                        name: courseName,
-                        courseNumber: courseNum,
-                        name: courseName,
-                        credits: parseInt(attempted, 10),
-                        grade: "-",
-                        completed: false
-                    };
-
-                    courses.push(course);
+                    semester = line.trim();
                 }
-            });
-
-            updateNumberReadouts();
+            }
         }
         
         // update the table with course data
         grid.updateConfig({
             data: courses
         }).forceRender();
+
+        // calculate num credits and GPA
+        updateNumberReadouts();
     }   
 }
 
